@@ -2,12 +2,15 @@ name: Daily Novel Generation
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Midnight UTC daily
-  workflow_dispatch:      # Manual trigger for testing
+    - cron: '0 0 * * *'  # 北京时间早上8点（UTC午夜）
+  workflow_dispatch:      # 手动触发
 
 jobs:
   generate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # 允许推送代码
+
     steps:
       - uses: actions/checkout@v4
 
@@ -16,21 +19,17 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt || true  # Optional, stdlib-only
-
       - name: Generate chapters
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          WRITER_MODEL: ${{ vars.WRITER_MODEL || 'claude-opus-4-7' }}
-          EDITOR_MODEL: ${{ vars.EDITOR_MODEL || 'claude-sonnet-4-6' }}
-          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: python3 scripts/generate_chapter.py --chapters 8
+          WRITER_MODEL: deepseek-chat
+          EDITOR_MODEL: deepseek-chat
+        run: python3 scripts/generate_chapter.py --chapters 8 --no-deploy
 
       - name: Commit and push
         run: |
           git config user.name "Novel Bot"
           git config user.email "bot@novel.local"
-          git add chapters/ story-bible/ site/content/
-          git diff --staged --quiet || git commit -m "Daily update: chapters $(date +%Y-%m-%d)"
+          git add chapters/ docs/ story-bible/
+          git diff --staged --quiet || git commit -m "每日自动更新 — $(date +'%Y-%m-%d')"
           git push
