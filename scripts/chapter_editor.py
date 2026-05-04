@@ -1,0 +1,110 @@
+"""Editor pass — review and revise a generated chapter draft."""
+
+import os
+from pathlib import Path
+
+from api_client import call_claude
+from context_builder import _chinese_num
+
+STORY_BIBLE_DIR = Path(__file__).resolve().parent.parent / "story-bible"
+CHAPTERS_DIR = Path(__file__).resolve().parent.parent / "chapters"
+
+
+def get_model() -> str:
+    return os.getenv("EDITOR_MODEL", "claude-sonnet-4-6")
+
+
+def get_style_guide() -> str:
+    path = STORY_BIBLE_DIR / "style-guide.md"
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    return ""
+
+
+def get_character_summary() -> str:
+    path = STORY_BIBLE_DIR / "characters.md"
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    return ""
+
+
+def edit_chapter(chapter_text: str, chapter_num: int, dry_run: bool = False) -> str:
+    """Review and revise a chapter draft."""
+    cn = _chinese_num(chapter_num)
+    prev_chapter_path = CHAPTERS_DIR / f"chapter-{chapter_num - 1:03d}.md"
+    prev_chapter = ""
+    if prev_chapter_path.exists():
+        prev_chapter = prev_chapter_path.read_text(encoding="utf-8")[-2000:]
+
+    prompt = f"""你是一位严格的小说编辑。请审查并修订以下新章节。
+
+## 风格指南
+{get_style_guide()}
+
+## 角色参考
+{get_character_summary()}
+
+## 前一章结尾（检查连贯性）
+{prev_chapter if prev_chapter else "（这是第一章，无前文）"}
+
+## 待审章节
+{chapter_text}
+
+---
+
+请检查以下方面：
+1. **连贯性**：角色行为、对话风格是否与设定一致？是否与前一章衔接？
+2. **情节**：情节推进是否合理？本章大纲是否完成？
+3. **节奏**：是否过于拖沓或仓促？
+4. **语言**：是否有重复用词、陈词滥调、语法错误？
+5. **悬念**：章末是否有足够的钩子吸引读者继续阅读？
+
+请直接输出修订后的完整章节正文。如果不需要修改，请输出 "NO_CHANGES_NEEDED"（仅此一行）。
+
+重要规则：
+- 只输出章节正文，不要附加任何修订说明、注释或点评
+- 保持原文的优点和风格
+- 只修改确实有问题的地方
+- 不要无故删减篇幅
+- 以 "## 第{cn}章" 开头
+- 输出格式必须是纯粹的章节内容，不能包含任何元评论"""
+
+    if dry_run:
+        print(f"[DRY RUN] Would review chapter {chapter_num}")
+        return chapter_text
+
+    result = call_claude(
+        prompt,
+        system="你是一位资深的中文文学编辑，对文字质量要求严格，擅长发现情节漏洞和角色不一致。",
+        model=get_model(),
+        max_tokens=4096,
+        temperature=0.3,
+    )
+
+    if result.strip() == "NO_CHANGES_NEEDED":
+        return chapter_text
+
+    return result
+
+
+def finalize_chapter(chapter_text: str, chapter_num: int) -> Path:
+    """Save the final edited chapter to the chapters directory."""
+    CHAPTERS_DIR.mkdir(parents=True, exist_ok=True)
+    cn = _chinese_num(chapter_num)
+
+    final_text = f"""---
+title: "第{cn}章"
+date: {_today()}
+weight: {chapter_num}
+---
+
+{chapter_text}
+"""
+    path = CHAPTERS_DIR / f"chapter-{chapter_num:03d}.md"
+    path.write_text(final_text, encoding="utf-8")
+    return path
+
+
+def _today() -> str:
+    from datetime import date
+    return date.today().isoformat()

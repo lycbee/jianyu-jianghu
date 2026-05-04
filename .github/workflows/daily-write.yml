@@ -1,0 +1,36 @@
+name: Daily Novel Generation
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Midnight UTC daily
+  workflow_dispatch:      # Manual trigger for testing
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt || true  # Optional, stdlib-only
+
+      - name: Generate chapters
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WRITER_MODEL: ${{ vars.WRITER_MODEL || 'claude-opus-4-7' }}
+          EDITOR_MODEL: ${{ vars.EDITOR_MODEL || 'claude-sonnet-4-6' }}
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: python3 scripts/generate_chapter.py --chapters 8
+
+      - name: Commit and push
+        run: |
+          git config user.name "Novel Bot"
+          git config user.email "bot@novel.local"
+          git add chapters/ story-bible/ site/content/
+          git diff --staged --quiet || git commit -m "Daily update: chapters $(date +%Y-%m-%d)"
+          git push
