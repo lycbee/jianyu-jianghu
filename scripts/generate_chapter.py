@@ -41,7 +41,7 @@ load_dotenv()
 
 from context_builder import get_next_chapter_number
 from chapter_writer import write_chapter
-from chapter_editor import edit_chapter, finalize_chapter
+from chapter_editor import edit_chapter, finalize_chapter, generate_title
 from bible_updater import update_all
 from site_builder import build
 
@@ -66,9 +66,14 @@ def generate_one_chapter(dry_run: bool = False) -> tuple[int, str]:
     edited = edit_chapter(draft, num, dry_run=dry_run)
     print(f"  定稿: {len(edited)} 字")
 
+    # Step 2.5: Generate title
+    print(f"[{num}] 生成标题...")
+    title = generate_title(edited, num, dry_run=dry_run)
+    print(f"  标题: {title}")
+
     # Step 3: Finalize and save
     print(f"[{num}] 保存章节...")
-    finalized_path = finalize_chapter(edited, num)
+    finalized_path = finalize_chapter(edited, num, title=title)
     print(f"  已保存: {finalized_path}")
 
     # Step 4: Update Story Bible
@@ -76,10 +81,6 @@ def generate_one_chapter(dry_run: bool = False) -> tuple[int, str]:
     updates = update_all(edited, num, dry_run=dry_run)
     for fname in updates:
         print(f"  已更新: {fname}")
-
-    lines = edited.strip().split("\n")
-    title_line = lines[0] if lines else f"第{num}章"
-    title = title_line.lstrip("#").strip() or f"第{num}章"
 
     return num, title
 

@@ -87,13 +87,33 @@ def edit_chapter(chapter_text: str, chapter_num: int, dry_run: bool = False) -> 
     return result
 
 
-def finalize_chapter(chapter_text: str, chapter_num: int) -> Path:
+def generate_title(chapter_text: str, chapter_num: int, dry_run: bool = False) -> str:
+    """Generate a chapter title based on the chapter content."""
+    if dry_run:
+        return ""
+
+    prompt = f"请为以下小说章节取一个标题。要求：2-6个汉字，概括本章核心内容或点睛之笔，有江湖气不要太直白，只输出标题本身不要任何其他内容。\n\n章节内容：\n{chapter_text[:2000]}\n\n标题："
+
+    title = call_claude(
+        prompt,
+        model=get_model(),
+        max_tokens=50,
+        temperature=0.7,
+    )
+    return title.strip()
+
+
+def finalize_chapter(chapter_text: str, chapter_num: int, title: str = "") -> Path:
     """Save the final edited chapter to the chapters directory."""
     CHAPTERS_DIR.mkdir(parents=True, exist_ok=True)
     cn = _chinese_num(chapter_num)
 
+    title_part = f"第{cn}章"
+    if title:
+        title_part += f" · {title}"
+
     final_text = f"""---
-title: "第{cn}章"
+title: "{title_part}"
 date: {_today()}
 weight: {chapter_num}
 ---
