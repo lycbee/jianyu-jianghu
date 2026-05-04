@@ -13,7 +13,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CHAPTERS_DIR = PROJECT_ROOT / "chapters"
-OUTPUT_DIR = PROJECT_ROOT / "site" / "public"
+OUTPUT_DIR = PROJECT_ROOT / "docs"
 
 CSS = """\
 :root {
