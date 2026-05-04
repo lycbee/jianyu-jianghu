@@ -185,7 +185,7 @@ def build():
 
 def _build_index(chapters: list[dict]) -> str:
     items = ""
-    for ch in reversed(chapters):
+    for ch in chapters:
         items += f'<li><a href="{ch["filename"]}.html">{ch["title"]}</a><span class="chapter-date">{ch["date"]}</span></li>\n'
 
     return f"""<h1>剑雨江湖</h1>
