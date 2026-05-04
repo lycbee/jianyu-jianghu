@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 story-bible/          # 故事记忆系统（角色/世界观/大纲/伏笔/风格）
 scripts/              # 核心流水线
-  generate_chapter.py # 主编排器（写→编→更新圣经→构建站点）
+  generate_chapter.py # 主编排器（写→编→取标题→更新圣经→构建站点）
   context_builder.py  # 上下文组装（从圣经中提取相关切片注入prompt）
   api_client.py       # 多Provider API客户端（Anthropic/DeepSeek自动检测）
   chapter_writer.py   # 调用API写作（temp 0.85）
@@ -44,34 +44,34 @@ site/                 # Hugo 站点配置（备用）
 
 ## Commands
 
-### 生成章节
+### 生成章节并发布
 ```bash
-python3 scripts/generate_chapter.py --chapters 1          # 生成1章
+python3 scripts/generate_chapter.py --chapters 1          # 生成1章（含：写作→审校→取标题→更新圣经→构建站点）
 python3 scripts/generate_chapter.py --chapters 8          # 生成8章（每日默认量）
 python3 scripts/generate_chapter.py --dry-run --chapters 1 # 试运行，不调API
+# 生成后手动推送：
+git add -A && git commit -m "第X章 · 标题" && git push
 ```
+推送前需设置代理：`export https_proxy=http://127.0.0.1:7897`
 
-### 构建站点
+### 仅重建站点（不生成新章节）
 ```bash
-python3 scripts/build_site.py    # 重新生成 docs/ 下的HTML
+python3 scripts/build_site.py    # 重新生成 docs/ 下的 HTML
 ```
 
-### 发布到网站
-```bash
-git add -A && git commit -m "更新章节" && git push
-```
-
-### 完整流水线
-每次 `generate_chapter.py` 完成后已自动构建站点。推送即可上线。
+### 流水线步骤
+写作（temp 0.85）→ 编辑审校（temp 0.3）→ 取标题（2-6字）→ 保存章节 → 更新故事圣经 → 构建站点
 
 ## Gotchas
 
-- **API 是 DeepSeek 不是 Anthropic**：环境变量名是 `ANTHROPIC_API_KEY`，但密钥前缀非 `sk-ant` 时自动切换为 DeepSeek 接口（OpenAI 兼容格式）。
-- **GitHub Pages 只支持 `/docs`**：静态 HTML 必须输出到 `docs/` 目录。
-- **Push 保护**：GitHub 会检测 commit 中的 token。`.claude/settings.local.json` 和 `.env` 不得提交。
-- **编辑审校可能附加元评论**：生成后的章节末尾需检查是否有多余的"修订说明"，有则删除。
-- **首次生成前必须填充 Story Bible**：角色、大纲、风格指南为空时质量不可控。
-- **git push 需要代理**：本机直连 GitHub 不通，需要 `export https_proxy=http://127.0.0.1:7897`。
+- **API 是 DeepSeek 不是 Anthropic**：环境变量名是 `ANTHROPIC_API_KEY`，但密钥前缀非 `sk-ant` 时自动切换为 DeepSeek 接口。
+- **GitHub Pages 只支持 `/docs`**：静态 HTML 输出到 `docs/` 目录。
+- **章节目录为正序**：旧章在上，新章在下（build_site.py 不使用 reversed）。
+- **`.env` 和 `.claude/settings.local.json` 不得提交**：gitignore 已配置。
+- **生成后检查章节末尾**：偶有编辑附加的"修订说明"需手动删除。
+- **Story Bible 质量决定输出质量**：角色、大纲、风格指南为空时不可生成。
+- **git push 需要代理 `7897`**：本机直连 GitHub 不通。
+- **GitHub Pages 部署有约 1 分钟延迟**：推送后稍等再刷新。
 
 ## Skill Usage Conventions
 
