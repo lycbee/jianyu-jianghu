@@ -27,7 +27,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 story-bible/          # 故事记忆系统（角色/世界观/大纲/伏笔/风格）
 scripts/              # 核心流水线
-  generate_chapter.py # 主编排器（写→编→取标题→更新圣经→构建站点）
+  generate_chapter.py # 主编排器（写→编→取标题→更新圣经→构建站点→里程碑检测）
+  outline_generator.py # 自动大纲生成（每10章更新下10章大纲，每30/70章幕回顾）
   context_builder.py  # 上下文组装（从圣经中提取相关切片注入prompt）
   api_client.py       # 多Provider API客户端（Anthropic/DeepSeek自动检测）
   chapter_writer.py   # 调用API写作（temp 0.85）
@@ -60,7 +61,7 @@ python3 scripts/build_site.py    # 重新生成 docs/ 下的 HTML
 ```
 
 ### 流水线步骤
-写作（temp 0.85）→ 编辑审校（temp 0.3）→ 取标题（2-6字）→ 保存章节 → 更新故事圣经 → 构建站点
+写作（temp 0.85）→ 编辑审校（temp 0.3）→ 取标题（2-6字）→ 保存章节 → 更新故事圣经 → 构建站点 → 里程碑检测（10/20/30章边界自动触发大纲生成，30/70章幕回顾）
 
 ## Gotchas
 
@@ -70,6 +71,8 @@ python3 scripts/build_site.py    # 重新生成 docs/ 下的 HTML
 - **`.env` 和 `.claude/settings.local.json` 不得提交**：gitignore 已配置。
 - **生成后检查章节末尾**：偶有编辑附加的"修订说明"需手动删除。
 - **Story Bible 质量决定输出质量**：角色、大纲、风格指南为空时不可生成。
+- **10章后需大纲**：仅第1-10章有手动大纲。第11章起依赖自动大纲生成，生成后需抽查大纲质量。
+- **里程碑触发额外API调用**：第10/20/30章边界会自动生成大纲，运行时间会比普通章节长。
 - **git push 需要代理 `7897`**：本机直连 GitHub 不通。
 - **GitHub Pages 部署有约 1 分钟延迟**：推送后稍等再刷新。
 
