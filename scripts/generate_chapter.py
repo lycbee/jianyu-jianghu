@@ -43,6 +43,7 @@ from context_builder import get_next_chapter_number
 from chapter_writer import write_chapter
 from chapter_editor import edit_chapter, finalize_chapter, generate_title
 from bible_updater import update_all
+from outline_generator import generate_next_outlines, append_outlines_to_file, review_act
 from site_builder import build
 
 
@@ -121,7 +122,39 @@ def main():
             print(f"\n生成章节时出错: {e}")
             continue
 
-    # Step 5: Build site after all chapters
+    # Step 5: Check milestones — auto-generate outlines if needed
+    if results:
+        last_chapter = max(r[0] for r in results)
+
+        # Every 10 chapters: generate next 10-chapter outlines
+        if last_chapter % 10 == 0:
+            print(f"\n{'='*60}")
+            print(f"🎯 第{last_chapter}章里程碑 — 自动生成下10章大纲")
+            print(f"{'='*60}")
+            try:
+                outlines = generate_next_outlines(last_chapter + 1, 10, dry_run=args.dry_run)
+                if outlines:
+                    append_outlines_to_file(outlines)
+            except Exception as e:
+                print(f"  大纲生成失败: {e}")
+
+        # Act transitions: deep review
+        if last_chapter in [30, 70]:
+            next_act = 2 if last_chapter == 30 else 3
+            print(f"\n{'='*60}")
+            print(f"📖 第{last_chapter}章幕结束 — 深度回顾与规划")
+            print(f"{'='*60}")
+            try:
+                review = review_act(next_act, dry_run=args.dry_run)
+                if review:
+                    print(f"\n{'='*60}")
+                    print("回顾与规划报告:")
+                    print(f"{'='*60}")
+                    print(review[:2000])
+            except Exception as e:
+                print(f"  幕回顾失败: {e}")
+
+    # Step 6: Build site
     print(f"\n{'='*60}")
     print("构建静态站点...")
     print(f"{'='*60}")
