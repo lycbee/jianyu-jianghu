@@ -27,20 +27,35 @@ def _read_bible_file(name: str) -> str:
 def _clean_api_output(text: str) -> str:
     """Strip markdown code fences and editorial preamble from API output."""
     text = text.strip()
-    # Remove leading "以下..." preamble lines
     lines = text.split("\n")
-    while lines and (lines[0].startswith("以下") or lines[0].startswith("根据")):
-        lines.pop(0)
+
+    # Strip ```markdown / ``` fences — find opening fence, discard everything before it
+    fence_idx = -1
+    for i, line in enumerate(lines):
+        if line.strip().startswith("```"):
+            fence_idx = i
+            break
+    if fence_idx >= 0:
+        lines = lines[fence_idx + 1:]  # Drop preamble + opening fence
+        # Drop closing ```
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+
     text = "\n".join(lines).strip()
-    # Strip ```markdown / ``` fences
-    if text.startswith("```"):
-        # Find end of opening fence
-        first_nl = text.find("\n")
-        if first_nl != -1:
-            text = text[first_nl + 1:]
-        # Strip closing ```
-        if text.endswith("```"):
-            text = text[:-3].rstrip()
+
+    # If content doesn't start with YAML frontmatter, find it
+    if not text.startswith("---"):
+        fm_idx = text.find("\n---\n")
+        if fm_idx > 0:
+            text = text[fm_idx + 1:].strip()
+
+    # Drop trailing editorial notes paragraph
+    for sep in ("\n\n---\n\n", "\n\n---", "\n\n如您需要"):
+        idx = text.rfind(sep)
+        if idx > len(text) * 0.7:  # Only trim if near the end
+            text = text[:idx].rstrip()
+            break
+
     return text.strip()
 
 
