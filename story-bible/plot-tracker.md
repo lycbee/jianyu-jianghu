@@ -1,3 +1,10 @@
+---
+name: plot-tracker
+description: 情节追踪与伏笔管理
+updated: 2026-05-05
+version: 18
+---
+
 # 情节追踪器
 
 ## 核心冲突

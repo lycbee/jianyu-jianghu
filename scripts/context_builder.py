@@ -101,16 +101,12 @@ def get_chapter_outline(chapter_num: int) -> str:
         return ""
     _, body = _parse_yaml_frontmatter(full)
     cn = _chinese_num(chapter_num)
-    # Match both "### 第X章" and "### Chapter X" formats
-    pattern = rf"### 第{cn}章.*?\n(.*?)(?=### 第|\Z)"
-    match = re.search(pattern, body, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    # Fallback: try English format
-    pattern_en = rf"### Chapter {chapter_num}\s*\n(.*?)(?=### Chapter|\Z)"
-    match = re.search(pattern_en, body, re.DOTALL)
-    if match:
-        return match.group(1).strip()
+    # Match both "## 第X章" and "### 第X章" formats
+    for hashes in ("###", "##"):
+        pattern = rf"{hashes} 第{cn}章.*?\n(.*?)(?={hashes} 第|\Z)"
+        match = re.search(pattern, body, re.DOTALL)
+        if match:
+            return match.group(1).strip()
     return ""
 
 
