@@ -24,6 +24,26 @@ def _read_bible_file(name: str) -> str:
     return ""
 
 
+def _clean_api_output(text: str) -> str:
+    """Strip markdown code fences and editorial preamble from API output."""
+    text = text.strip()
+    # Remove leading "以下..." preamble lines
+    lines = text.split("\n")
+    while lines and (lines[0].startswith("以下") or lines[0].startswith("根据")):
+        lines.pop(0)
+    text = "\n".join(lines).strip()
+    # Strip ```markdown / ``` fences
+    if text.startswith("```"):
+        # Find end of opening fence
+        first_nl = text.find("\n")
+        if first_nl != -1:
+            text = text[first_nl + 1:]
+        # Strip closing ```
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
+    return text.strip()
+
+
 def _write_bible_file(name: str, content: str) -> None:
     path = STORY_BIBLE_DIR / name
     path.write_text(content, encoding="utf-8")
@@ -87,7 +107,7 @@ def update_chapter_summaries(chapter_text: str, chapter_num: int,
             max_tokens=1024,
             temperature=0.3,
         )
-        summary_entry = result.strip()
+        summary_entry = _clean_api_output(result)
 
     # Append before the Emotional Curve section
     if "## Emotional Curve" in current:
@@ -128,7 +148,7 @@ def update_characters(chapter_text: str, chapter_num: int,
         max_tokens=4096,
         temperature=0.3,
     )
-    new_content = result.strip()
+    new_content = _clean_api_output(result)
 
     _write_bible_file("characters.md", new_content)
     return new_content
@@ -163,7 +183,7 @@ def update_plot_tracker(chapter_text: str, chapter_num: int,
         max_tokens=4096,
         temperature=0.3,
     )
-    new_content = result.strip()
+    new_content = _clean_api_output(result)
 
     _write_bible_file("plot-tracker.md", new_content)
     return new_content
@@ -195,8 +215,9 @@ def update_world_building(chapter_text: str, chapter_num: int,
         max_tokens=4096,
         temperature=0.3,
     )
+    result = _clean_api_output(result)
 
-    if result.strip() == "NO_CHANGES":
+    if result == "NO_CHANGES":
         return current
 
     _write_bible_file("world-building.md", result)

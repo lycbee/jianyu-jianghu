@@ -87,12 +87,38 @@ def edit_chapter(chapter_text: str, chapter_num: int, dry_run: bool = False) -> 
     return result
 
 
+def _get_used_titles() -> set[str]:
+    """Collect all previously used chapter titles."""
+    used = set()
+    for f in sorted(CHAPTERS_DIR.glob("chapter-*.md")):
+        text = f.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if line.startswith("title:"):
+                # Extract title between quotes, remove "第X章 · " prefix
+                raw = line.split(":", 1)[1].strip().strip('"')
+                # "第X章 · Title" -> "Title"
+                if " · " in raw:
+                    title_part = raw.split(" · ", 1)[1]
+                    used.add(title_part)
+                break
+    return used
+
+
 def generate_title(chapter_text: str, chapter_num: int, dry_run: bool = False) -> str:
     """Generate a chapter title based on the chapter content."""
     if dry_run:
         return ""
 
-    prompt = f"请为以下小说章节取一个标题。要求：2-6个汉字，概括本章核心内容或点睛之笔，有江湖气不要太直白，只输出标题本身不要任何其他内容。\n\n章节内容：\n{chapter_text[:2000]}\n\n标题："
+    used = _get_used_titles()
+    avoid = ""
+    if used:
+        avoid = f"\n\n请勿使用以下已有标题：{'、'.join(sorted(used))}"
+
+    prompt = (
+        f"请为以下小说章节取一个标题。要求：2-6个汉字，概括本章核心内容或点睛之笔，"
+        f"有江湖气不要太直白，只输出标题本身不要任何其他内容。{avoid}\n\n"
+        f"章节内容：\n{chapter_text[:2000]}\n\n标题："
+    )
 
     title = call_claude(
         prompt,

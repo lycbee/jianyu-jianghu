@@ -1,6 +1,3 @@
-以下是根据第八章内容更新后的完整情节追踪器：
-
-```markdown
 ---
 name: plot-tracker
 description: 情节追踪与伏笔管理
