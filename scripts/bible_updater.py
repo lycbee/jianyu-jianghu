@@ -210,16 +210,24 @@ def update_world_building(chapter_text: str, chapter_num: int,
     current = _read_bible_file("world-building.md")
     cn = _chinese_num(chapter_num)
 
+    # Detect empty/corrupted current state — force full rebuild if needed
+    current_is_empty = (not current or len(current.strip()) < 100
+                        or "NO_CHANGES" in current)
+
+    if current_is_empty:
+        instruction = "当前世界观设定为空或不完整。请根据本章节内容，创建world-building.md的初始完整内容，包含地点、势力、规则、关键物品等所有已出现元素。"
+    else:
+        instruction = "如果有新的地点、规则、世界背景被引入或改变，请输出更新后的world-building.md完整内容。如果没有变化，请输出 \"NO_CHANGES\"（仅此一行，不要附加任何说明文字）。"
+
     prompt = f"""分析以下小说章节，检查是否有新的世界观信息需要记录。
 
 ## 当前世界观设定
-{current}
+{current if not current_is_empty else '（空——请根据章节内容创建初始设定）'}
 
 ## 新章节（第{cn}章）
 {chapter_text[:4000]}
 
-如果有新的地点、规则、世界背景被引入或改变，请输出更新后的world-building.md完整内容。
-如果没有变化，请输出 "NO_CHANGES"。"""
+{instruction}"""
 
     if dry_run:
         return current
@@ -232,7 +240,8 @@ def update_world_building(chapter_text: str, chapter_num: int,
     )
     result = _clean_api_output(result)
 
-    if result == "NO_CHANGES":
+    # Robust NO_CHANGES detection — strip any surrounding fluff
+    if "NO_CHANGES" in result and len(result.strip()) < 50:
         return current
 
     _write_bible_file("world-building.md", result)
