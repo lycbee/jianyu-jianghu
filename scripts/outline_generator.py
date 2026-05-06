@@ -53,29 +53,36 @@ def generate_next_outlines(start_chapter: int, count: int = 10,
             text = text.split("---", 2)[-1]
         recent_text += text[:2000] + "\n\n---\n\n"
 
+    # Extract last chapter's ending hook from summaries to anchor continuity
+    last_hook = ""
+    hook_match = re.search(r"- 章节钩子:\s*(.*?)(?=\n## |\n\n## |\Z)", chapter_summaries[-2000:], re.DOTALL)
+    if hook_match:
+        last_hook = hook_match.group(1).strip()
+
     prompt = f"""你是一位小说大纲规划师。请为《剑雨江湖》续写详细章节大纲。
 
-## 当前情节追踪器
-{plot_tracker}
-
 ## 角色档案
-{characters}
+{characters[:2000] if len(characters) > 2000 else characters}
 
-## 现有大纲
-{current_outline[-5000:] if len(current_outline) > 5000 else current_outline}
+## 情节追踪器
+{plot_tracker[:3000] if len(plot_tracker) > 3000 else plot_tracker}
+
+## 最近章节原文（结尾场景——必须从此处延伸）
+{recent_text[-3000:]}
 
 ## 最近章节摘要
-{chapter_summaries}
+{chapter_summaries[-3000:] if len(chapter_summaries) > 3000 else chapter_summaries}
 
-## 最近章节原文（结尾部分）
-{recent_text[-4000:]}
+## 现有大纲（末尾部分）
+{current_outline[-4000:] if len(current_outline) > 4000 else current_outline}
 
 ---
 
 请为第{start_chapter}章到第{end}章生成逐章详细大纲。每章格式如下：
 
-### 第{_chinese_num(start_chapter)}章
+### 第{_chinese_num(start_chapter)}章（首章示例，后续各章同样格式）
 
+**桥接上一章**：（用1-2句话描述本章开头场景如何从上一章结尾场景自然延续。地点一致、时间连续、人物状态延续。必须读完上方"最近章节原文（结尾场景）"后根据实际结尾来写桥接，不能凭想象。）
 - POV角色:
 - 主要地点:
 - 场景目标（本章POV角色想要什么）:
@@ -88,15 +95,17 @@ def generate_next_outlines(start_chapter: int, count: int = 10,
 - 章末钩子:
 - 伏笔要埋:
 
-...（第{start_chapter+1}章到第{end}章，同样格式）
+...（第{start_chapter+1}章到第{end}章，每章均须以 **桥接上一章** 开头，其余字段同上）
 
 要求：
 1. 严格遵循三幕结构和现有情节走向
-2. 每个章节要有独立的场景目标和情感弧线
-3. 章节之间要有因果链（前一章的钩子 → 下一章的展开）
-4. 合理分配伏笔的"埋下"和"回收"
+2. 每个章节必须有独立的场景目标和情感弧线
+3. **章节之间必须有因果链**：每一章的"桥接上一章"必须读取上一章的"章末钩子"，从该场景直接开始。不能跳过时间、跳换地点，除非上一章结尾本身就隐含了时间推移
+4. 合理分配伏笔的"埋下"和"回收"，标注在"伏笔要埋"字段
 5. 紧张度要有起伏，避免连续高强度或连续平淡
 6. 直接输出大纲，不要任何额外说明"""
+    if last_hook:
+        prompt += f"\n7. 特别提醒：最近一章的结尾钩子是「{last_hook}」。第一个生成章节的\"桥接上一章\"必须直接回应此钩子。"
 
     if dry_run:
         print(f"  [DRY RUN] 将生成 {start_chapter}-{end} 章大纲")
