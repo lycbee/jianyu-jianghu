@@ -14,10 +14,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Environment
 
-- Linux (6.17.0-22-generic)
 - Shell: bash
 - API 密钥：复制 `.env.example` 为 `.env`，填入 `ANTHROPIC_API_KEY`（实际对接 DeepSeek API）
-- 网络代理：本机通过代理访问外网，端口 `7897`。涉及 GitHub 操作需先设置：
+- 网络代理：本机通过代理访问外网，端口 `7897`。API 调用和 Git 操作均需代理：
   ```bash
   export https_proxy=http://127.0.0.1:7897
   ```
@@ -35,11 +34,10 @@ scripts/              # 核心流水线
   chapter_editor.py   # 调用API审校（temp 0.3）
   bible_updater.py    # 更新故事圣经（记忆沉淀步骤）
   build_site.py       # 生成静态HTML站点（零依赖）
-  site_builder.py     # 站点构建+部署触发
+  site_builder.py     # 站点构建封装 + Vercel 部署触发
 chapters/             # 最终发布的章节（Markdown + Hugo frontmatter）
 drafts/               # 初稿（不提交git）
 docs/                 # 生成的静态站点（GitHub Pages 部署目录）
-site/                 # Hugo 站点配置（备用）
 .github/workflows/    # GitHub Actions 每日定时任务
 ```
 
@@ -60,6 +58,21 @@ git add -A && git commit -m "第X章 · 标题" && git push
 python3 scripts/build_site.py    # 重新生成 docs/ 下的 HTML
 ```
 
+### 手动触发 GitHub Actions
+`gh` CLI 未安装，需用 curl 调用 API（token 从 `git remote -v` 中提取）：
+```bash
+TOKEN="ghp_xxx"  # 从 git remote get-url origin 中提取
+curl -s -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/lycbee/jianyu-jianghu/actions/workflows/daily-write.yml/dispatches \
+  -d '{"ref":"main"}'
+# 检查状态：
+curl -s -H "Authorization: Bearer $TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/lycbee/jianyu-jianghu/actions/runs?per_page=1
+```
+
 ### 流水线步骤
 写作（temp 0.85）→ 编辑审校（temp 0.3）→ 取标题（2-6字）→ 保存章节 → 更新故事圣经 → 构建站点 → 里程碑检测（10/20/30章边界自动触发大纲生成，30/70章幕回顾）
 
@@ -71,26 +84,22 @@ python3 scripts/build_site.py    # 重新生成 docs/ 下的 HTML
 - **`.env` 和 `.claude/settings.local.json` 不得提交**：gitignore 已配置。
 - **生成后检查章节末尾**：偶有编辑附加的"修订说明"需手动删除。
 - **Story Bible 质量决定输出质量**：角色、大纲、风格指南为空时不可生成。
-- **10章后需大纲**：仅第1-10章有手动大纲。第11章起依赖自动大纲生成，生成后需抽查大纲质量。
-- **里程碑触发额外API调用**：第10/20/30章边界会自动生成大纲，运行时间会比普通章节长。
+- **大纲分层管理**：第1-10章为手工大纲，第11章起由里程碑自动生成（每10章一批）。生成后需抽查大纲质量，尤其是与已写内容的连贯性。
+- **里程碑检测扫描批次**：不在只检查 `last_chapter`，而是遍历批次中所有章节号，避免跳批时遗漏。第10/20/30章触发大纲生成，第30/70章额外触发幕回顾。
+- **Bible 输出会被 API 污染**：API 返回的 bible 内容可能被 ```markdown 包装或附带前言（"好的，根据..."等），`bible_updater._clean_api_output()` 自动清理。
+- **标题自动去重**：`generate_title()` 会读取已有章节标题注入 prompt，避免重复。但已生成的重复标题（如第2章和第5章均为"剑不出鞘"）不会自动修复。
 - **git push 需要代理 `7897`**：本机直连 GitHub 不通。
 - **GitHub Pages 部署有约 1 分钟延迟**：推送后稍等再刷新。
 
 ## Skill Usage Conventions
 
-Always invoke the relevant skill before these categories of work.
-
 | 场景 | 使用技能 |
 |------|----------|
 | 写 HTML/CSS/UI | `frontend-design` |
 | 代码审查/质量 | `simplify`（改后）、`security-review`（合并前） |
-| PR 审查 | `review` 或 `pr-review-toolkit:review-pr` |
 | Git 提交 | `commit-commands:commit` |
 | 提交+推送+PR | `commit-commands:commit-push-pr` |
 | 修改 settings.json | `update-config` |
-| 减少权限提示 | `fewer-permission-prompts` |
 | 更新 CLAUDE.md | `claude-md-management:claude-md-improver` |
 | 复杂功能开发 | `feature-dev` |
 | 定时/循环任务 | `loop` |
-| 自动行为钩子 | `hookify:hookify` |
-| Anthropic SDK/API | `claude-api`（本项目用 DeepSeek，通常跳过） |
