@@ -53,7 +53,7 @@ def edit_chapter(chapter_text: str, chapter_num: int, dry_run: bool = False) -> 
 ---
 
 请检查以下方面：
-1. **连贯性**：角色行为、对话风格是否与设定一致？是否与前一章衔接？
+1. **连贯性（最高优先级）**：本章开头是否直接承接了前一章结尾的场景、地点、时间和人物状态？如果前一章结尾有未解决的冲突，本章是否处理了？如果发现跳跃或断裂，必须重写开头使其衔接顺畅。角色行为、对话风格是否与设定一致？
 2. **情节**：情节推进是否合理？本章大纲是否完成？
 3. **节奏**：是否过于拖沓或仓促？
 4. **语言**：是否有重复用词、陈词滥调、语法错误？
@@ -126,7 +126,26 @@ def generate_title(chapter_text: str, chapter_num: int, dry_run: bool = False) -
         max_tokens=50,
         temperature=0.7,
     )
-    return title.strip()
+    title = title.strip()
+
+    # Post-generation dedup: force retry if title already used
+    used = _get_used_titles()
+    if title in used:
+        retry_prompt = (
+            f"请为以下小说章节重新取一个标题。要求：2-6个汉字，概括本章核心内容或点睛之笔，"
+            f"有江湖气不要太直白，只输出标题本身不要任何其他内容。\n\n"
+            f"重要：绝对不能使用以下已有标题：{'、'.join(sorted(used))}\n\n"
+            f"章节内容：\n{chapter_text[:2000]}\n\n标题："
+        )
+        title = call_claude(
+            retry_prompt,
+            model=get_model(),
+            max_tokens=50,
+            temperature=0.7,
+        )
+        title = title.strip()
+
+    return title
 
 
 def finalize_chapter(chapter_text: str, chapter_num: int, title: str = "") -> Path:

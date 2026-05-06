@@ -122,6 +122,49 @@ def get_next_chapter_number() -> int:
         return 1
 
 
+def get_previous_chapter_ending(char_count: int = 500) -> str:
+    """Extract the last N chars of the most recent chapter for continuity injection."""
+    chapter_files = sorted(CHAPTERS_DIR.glob("chapter-*.md"))
+    if not chapter_files:
+        return ""
+    text = _read_file(chapter_files[-1])
+    if not text:
+        return ""
+    _, body = _parse_yaml_frontmatter(text)
+    body = body.strip()
+    if len(body) <= char_count:
+        return body
+    return body[-char_count:]
+
+
+def get_previous_chapter_hook() -> str:
+    """Extract the cliffhanger from chapter-summaries.md for the last completed chapter."""
+    full = _read_file(STORY_BIBLE_DIR / "chapter-summaries.md")
+    if not full:
+        return ""
+    _, body = _parse_yaml_frontmatter(full)
+
+    chapter_files = sorted(CHAPTERS_DIR.glob("chapter-*.md"))
+    if not chapter_files:
+        return ""
+    try:
+        last_num = int(chapter_files[-1].stem.split("-")[1])
+    except (IndexError, ValueError):
+        return ""
+    cn = _chinese_num(last_num)
+
+    pattern = rf"## 第{cn}章\b.*?- 章节钩子:\s*(.*?)(?=\n## |\n\n## |\Z)"
+    match = re.search(pattern, body, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    # Fallback: last hook in file
+    last = ""
+    for m in re.finditer(r"- 章节钩子:\s*(.*)", body):
+        last = m.group(1).strip()
+    return last
+
+
 def get_unresolved_foreshadowing(max_chars: int = 300) -> str:
     """Extract unresolved foreshadowing items from plot-tracker."""
     full = _read_file(STORY_BIBLE_DIR / "plot-tracker.md")
@@ -174,6 +217,8 @@ def build_context(chapter_num: int | None = None) -> dict:
         "style_guide": get_style_guide_condensed(500),
         "characters": get_characters_context(800),
         "previous_chapters": prev_text,
+        "previous_chapter_ending": get_previous_chapter_ending(500),
+        "previous_chapter_hook": get_previous_chapter_hook(),
         "chapter_outline": outline,
         "unresolved_foreshadowing": get_unresolved_foreshadowing(300),
         "emotional_curve": get_emotional_curve(),
@@ -184,6 +229,21 @@ def build_context(chapter_num: int | None = None) -> dict:
 def build_writer_prompt(context: dict) -> str:
     """Build the full writing prompt from assembled context."""
     cn = _chinese_num(context["chapter_num"])
+
+    ending_block = ""
+    if context.get("previous_chapter_ending"):
+        ending_block = f"""
+
+## 前一章结尾（必须直接衔接——你的第一句话就要从这个场景开始）
+{context['previous_chapter_ending']}"""
+
+    hook_block = ""
+    if context.get("previous_chapter_hook"):
+        hook_block = f"""
+
+## 前一章钩子（本章开头必须回收或延续此悬念）
+{context['previous_chapter_hook']}"""
+
     prompt = f"""你是一位专业的小说作家。请根据以下指南，用中文撰写小说章节。
 
 ## 风格指南
@@ -192,8 +252,8 @@ def build_writer_prompt(context: dict) -> str:
 ## 角色档案
 {context['characters']}
 
-## 前文回顾（最近三章）
-{context['previous_chapters']}
+## 前文回顾（最近三章全文）
+{context['previous_chapters']}{ending_block}{hook_block}
 
 ## 本章大纲
 {context['chapter_outline']}
@@ -207,10 +267,12 @@ def build_writer_prompt(context: dict) -> str:
 ---
 
 请撰写第{cn}章。要求：
-1. 严格遵循本章大纲
+1. 严格遵循本章大纲，但如果大纲与前文实际内容有矛盾，以前文实际内容为准
 2. 保持与前文的连贯性（角色性格、说话方式、情节发展）
 3. 约 2500 字
 4. 章节结尾要有悬念或钩子，引导读者继续阅读下一章
 5. 如果有待回收的伏笔，在本章中自然地回收
-6. 直接输出章节正文，以 "## 第{cn}章" 开头"""
+6. 直接输出章节正文，以 "## 第{cn}章" 开头
+7. 重要：章节开头必须直接承接前一章结尾的场景——地点一致、时间连续、人物状态延续。不能跳到不同地点，不能无故跳过时间
+8. 如果前一章结尾有未解决的冲突或悬念（如门被撬开、敌人逼近、角色遇险），本章开头必须直接处理该场景，不能跳过"""
     return prompt

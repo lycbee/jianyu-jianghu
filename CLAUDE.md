@@ -79,17 +79,20 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 ## Gotchas
 
 - **API 是 DeepSeek 不是 Anthropic**：环境变量名是 `ANTHROPIC_API_KEY`，但密钥前缀非 `sk-ant` 时自动切换为 DeepSeek 接口。
-- **GitHub Pages 只支持 `/docs`**：静态 HTML 输出到 `docs/` 目录。
+- **GitHub Pages 只支持 `/docs`**：静态 HTML 输出到 `docs/` 目录。站点构建用 `build_site.py`，不要用旧的 Hugo `site/` 目录（已删除）。
 - **章节目录为正序**：旧章在上，新章在下（build_site.py 不使用 reversed）。
-- **`.env` 和 `.claude/settings.local.json` 不得提交**：gitignore 已配置。
+- **`.env` 和 `.claude/settings.local.json` 不得提交**：gitignore 已配置。`drafts/` 和 `__pycache__/` 也已排除。
 - **生成后检查章节末尾**：偶有编辑附加的"修订说明"需手动删除。
 - **Story Bible 质量决定输出质量**：角色、大纲、风格指南为空时不可生成。
 - **大纲分层管理**：第1-10章为手工大纲，第11章起由里程碑自动生成（每10章一批）。生成后需抽查大纲质量，尤其是与已写内容的连贯性。
+- **大纲必须包含桥接指令**：手工大纲中每章开头必须有 `**桥接上一章**` 段，描述如何从上一章结尾场景直接衔接。这是防止章节间跳跃断裂的核心机制。
+- **context_builder.py 的连续性注入**：`get_previous_chapter_ending()` 提取上一章最后500字，`get_previous_chapter_hook()` 提取上一章的章末钩子，两者均注入到写入器 prompt 中。写入器被明确要求"章节开头必须直接承接前一章结尾的场景"。
 - **里程碑检测扫描批次**：不在只检查 `last_chapter`，而是遍历批次中所有章节号，避免跳批时遗漏。第10/20/30章触发大纲生成，第30/70章额外触发幕回顾。
 - **Bible 输出会被 API 污染**：API 返回的 bible 内容可能被 ```markdown 包装或附带前言（"好的，根据..."等），`bible_updater._clean_api_output()` 自动清理。
-- **标题自动去重**：`generate_title()` 会读取已有章节标题注入 prompt，避免重复。但已生成的重复标题（如第2章和第5章均为"剑不出鞘"）不会自动修复。
+- **标题自动去重已强化**：`generate_title()` 注入已有标题列表避免重复，且增加了硬检查——如果生成标题仍与已有标题冲突，强制重试一次。
 - **git push 需要代理 `7897`**：本机直连 GitHub 不通。
 - **GitHub Pages 部署有约 1 分钟延迟**：推送后稍等再刷新。
+- **重大改动后更新 README**：对项目结构、机制、命令有改动时，同步更新 README.md。
 
 ## Skill Usage Conventions
 
