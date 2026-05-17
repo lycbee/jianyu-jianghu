@@ -93,6 +93,8 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 - **git push 需要代理 `7897`**：本机直连 GitHub 不通。
 - **GitHub Pages 部署有约 1 分钟延迟**：推送后稍等再刷新。
 - **重大改动后更新 README**：对项目结构、机制、命令有改动时，同步更新 README.md。
+- **MAX_CHAPTERS = 115（`context_builder.py`）**：全书共 115 章。`generate_chapter.py` 在循环前和每次迭代时检查章号，超过则自动停止。`outline_generator.py` 在里程碑触发时不会生成超过 115 章的大纲。GitHub Actions workflow 在达到 115 章后跳过生成。
+- **完结检测（`build_site.py`）**：`_is_completed()` 同时检查 outline.md 中是否有 `**全书完**` 标记和实际章节数是否 >= MAX_CHAPTERS。完结后首页显示"已完结"，页脚改为"全书完 · AI 辅助创作"，最终章页面添加完结标记。
 
 ## Skill Usage Conventions
 

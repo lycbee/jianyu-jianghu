@@ -39,7 +39,7 @@ def load_dotenv() -> None:
 # Load .env before importing modules that read from os.environ
 load_dotenv()
 
-from context_builder import get_next_chapter_number
+from context_builder import get_next_chapter_number, MAX_CHAPTERS
 from chapter_writer import write_chapter
 from chapter_editor import edit_chapter, finalize_chapter, generate_title
 from bible_updater import update_all
@@ -74,7 +74,8 @@ def generate_one_chapter(dry_run: bool = False) -> tuple[int, str]:
 
     # Step 3: Finalize and save
     print(f"[{num}] 保存章节...")
-    finalized_path = finalize_chapter(edited, num, title=title)
+    is_final = (num == MAX_CHAPTERS)
+    finalized_path = finalize_chapter(edited, num, title=title, is_final=is_final)
     print(f"  已保存: {finalized_path}")
 
     # Step 4: Update Story Bible
@@ -107,6 +108,14 @@ def main():
         print("错误: 未设置 ANTHROPIC_API_KEY。请在 .env 文件中设置，或使用 --dry-run 测试。")
         sys.exit(1)
 
+    # Check if novel is already complete
+    next_chapter = get_next_chapter_number()
+    if next_chapter > MAX_CHAPTERS:
+        print(f"\n=== 《剑雨江湖》已于第{MAX_CHAPTERS}章完结 ===")
+        print("全书已完成，无需生成新章节。")
+        build(trigger_deploy=not args.no_deploy and not args.dry_run)
+        return
+
     start_time = datetime.now()
     print(f"=== 剑雨江湖 — 每日自动写作 ===")
     print(f"开始时间: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -115,6 +124,9 @@ def main():
 
     results = []
     for i in range(args.chapters):
+        if get_next_chapter_number() > MAX_CHAPTERS:
+            print(f"\n=== 已到达最终章 {MAX_CHAPTERS}，停止生成 ===")
+            break
         try:
             num, title = generate_one_chapter(dry_run=args.dry_run)
             results.append((num, title))
@@ -131,11 +143,18 @@ def main():
         # Scan all chapters in the batch so we don't miss mid-batch milestones
         for boundary in range(10, last_chapter + 1, 10):
             if boundary in chapter_nums:
+                next_start = boundary + 1
+                # Don't generate outlines past MAX_CHAPTERS
+                if next_start > MAX_CHAPTERS:
+                    print(f"\n  大纲已到达最终章 {MAX_CHAPTERS}，不再扩展。")
+                    continue
+                count = min(10, MAX_CHAPTERS - next_start + 1)
+                next_end = next_start + count - 1
                 print(f"\n{'='*60}")
-                print(f"🎯 第{boundary}章里程碑 — 自动生成第{boundary+1}-{boundary+10}章大纲")
+                print(f"🎯 第{boundary}章里程碑 — 自动生成第{next_start}-{next_end}章大纲")
                 print(f"{'='*60}")
                 try:
-                    outlines = generate_next_outlines(boundary + 1, 10, dry_run=args.dry_run)
+                    outlines = generate_next_outlines(next_start, count, dry_run=args.dry_run)
                     if outlines:
                         append_outlines_to_file(outlines)
                 except Exception as e:
@@ -172,6 +191,15 @@ def main():
         print(f"  第{num}章: {title}")
     print(f"耗时: {elapsed}")
     print(f"结束时间: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    # Completion celebration
+    chapter_nums = {r[0] for r in results} if results else set()
+    last_gen = max(chapter_nums) if chapter_nums else 0
+    if last_gen >= MAX_CHAPTERS:
+        print(f"\n{'='*60}")
+        print(f"  《剑雨江湖》全书完结！共 {MAX_CHAPTERS} 章。")
+        print(f"  感谢所有读者的支持。")
+        print(f"{'='*60}")
 
 
 if __name__ == "__main__":

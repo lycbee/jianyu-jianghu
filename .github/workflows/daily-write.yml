@@ -19,7 +19,19 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Check if novel is complete
+        id: check
+        run: |
+          CHAPTER_COUNT=$(ls chapters/chapter-*.md 2>/dev/null | wc -l)
+          if [ "$CHAPTER_COUNT" -ge 115 ]; then
+            echo "completed=true" >> $GITHUB_OUTPUT
+            echo "小说已完结（${CHAPTER_COUNT}/115章），跳过生成。"
+          else
+            echo "completed=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Generate chapters
+        if: steps.check.outputs.completed != 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           WRITER_MODEL: deepseek-chat

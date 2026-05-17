@@ -6,6 +6,9 @@ from pathlib import Path
 STORY_BIBLE_DIR = Path(__file__).resolve().parent.parent / "story-bible"
 CHAPTERS_DIR = Path(__file__).resolve().parent.parent / "chapters"
 
+# 全书完结章数 — 到达此章后自动停止生成
+MAX_CHAPTERS = 115
+
 
 def _read_file(path: Path) -> str:
     if not path.exists():
@@ -87,6 +90,8 @@ _CHINESE_NUMERALS = {
     100: "一百", 101: "一百零一", 102: "一百零二", 103: "一百零三",
     104: "一百零四", 105: "一百零五", 106: "一百零六", 107: "一百零七",
     108: "一百零八", 109: "一百零九", 110: "一百一十",
+    111: "一百一十一", 112: "一百一十二", 113: "一百一十三",
+    114: "一百一十四", 115: "一百一十五",
 }
 
 
@@ -275,4 +280,11 @@ def build_writer_prompt(context: dict) -> str:
 6. 直接输出章节正文，以 "## 第{cn}章" 开头
 7. 重要：章节开头必须直接承接前一章结尾的场景——地点一致、时间连续、人物状态延续。不能跳到不同地点，不能无故跳过时间
 8. 如果前一章结尾有未解决的冲突或悬念（如门被撬开、敌人逼近、角色遇险），本章开头必须直接处理该场景，不能跳过"""
+
+    # Final chapter instruction
+    if "全书完" in (context.get("chapter_outline") or ""):
+        prompt += """
+
+9. ⚠️ 本章是全书最终章。必须写出一个令人满意的结局：回收核心悬念、给出主要角色的最终去向、在情感上收束。章末不要留任何新悬念。结尾可以是一段宁静的日常、一个象征性场景、或角色的内心独白。"""
+
     return prompt

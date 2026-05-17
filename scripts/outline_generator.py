@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 from api_client import call_claude
-from context_builder import _chinese_num, _read_file, _parse_yaml_frontmatter
+from context_builder import _chinese_num, _read_file, _parse_yaml_frontmatter, MAX_CHAPTERS
 
 STORY_BIBLE_DIR = Path(__file__).resolve().parent.parent / "story-bible"
 CHAPTERS_DIR = Path(__file__).resolve().parent.parent / "chapters"
@@ -35,6 +35,11 @@ def generate_next_outlines(start_chapter: int, count: int = 10,
     Returns:
         The generated outline text in Markdown format.
     """
+    # Cap check
+    if start_chapter > MAX_CHAPTERS:
+        print(f"  已到达最终章 {MAX_CHAPTERS}，不再生成大纲。")
+        return ""
+    count = min(count, MAX_CHAPTERS - start_chapter + 1)
     end = start_chapter + count - 1
     print(f"\n  生成第{start_chapter}-{end}章逐章大纲...")
 
@@ -106,6 +111,20 @@ def generate_next_outlines(start_chapter: int, count: int = 10,
 6. 直接输出大纲，不要任何额外说明"""
     if last_hook:
         prompt += f"\n7. 特别提醒：最近一章的结尾钩子是「{last_hook}」。第一个生成章节的\"桥接上一章\"必须直接回应此钩子。"
+
+    # Ending instruction for the final batch
+    if end >= MAX_CHAPTERS:
+        prompt += f"""
+
+⚠️ 重要：这是全书最后一批大纲（第{start_chapter}-{end}章）。
+必须在本批次的最后一章（第{end}章）中将故事推至全书结局，而非留下新悬念。
+结局要求：
+1. 第{start_chapter}到第{end-1}章为\"终结篇\"，紧张度逐步攀升至第{end-1}章的高潮
+2. 第{end}章为\"终章\"，包含：高潮战斗/对决的解决、核心伏笔的回收、主要角色的结局去向、情感上的收束
+3. 最后一章的\"章末钩子\"字段应为\"全书完\"而非悬疑钩子
+4. 终章应有宁静的尾声，展示角色在新世界中的位置（可以是一段日常、一个象征性场景或角色的内心独白）
+5. 不要引入新的伏笔或未解决线索；此批大纲只做\"收\"和\"合\"
+6. 注意：原有三幕结构的核心主题必须贯穿到结局——剑道不是杀伐之道，而是问心之道"""
 
     if dry_run:
         print(f"  [DRY RUN] 将生成 {start_chapter}-{end} 章大纲")

@@ -15,6 +15,18 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CHAPTERS_DIR = PROJECT_ROOT / "chapters"
 OUTPUT_DIR = PROJECT_ROOT / "docs"
 
+
+def _is_completed(chapters: list[dict]) -> bool:
+    """Check if the novel is completed: outline has '全书完' marker AND all planned chapters exist."""
+    outline_path = PROJECT_ROOT / "story-bible" / "outline.md"
+    if not outline_path.exists():
+        return False
+    if "全书完" not in outline_path.read_text(encoding="utf-8"):
+        return False
+    # Also require the actual chapter count to match or exceed planned count
+    from context_builder import MAX_CHAPTERS
+    return len(chapters) >= MAX_CHAPTERS
+
 CSS = """\
 :root {
     --bg: #faf9f7;
@@ -48,6 +60,7 @@ footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border
 .cta { margin: 1.5rem 0; }
 .cta a { display: inline-block; padding: 0.4rem 1.2rem; background: var(--link); color: #fff; text-decoration: none; border-radius: 4px; margin-right: 0.5rem; }
 .cta a.rss { background: none; color: var(--link); border: 1px solid var(--border); }
+.epilogue-note { margin: 2rem 0; padding: 1.5rem; border: 1px solid var(--border); background: var(--accent); text-align: center; font-style: italic; font-size: 1.1rem; color: var(--link); }
 """
 
 
@@ -131,7 +144,8 @@ def _md_to_html(text: str) -> str:
     return "\n".join(out)
 
 
-def _render_page(title: str, body: str, nav_links: str = "") -> str:
+def _render_page(title: str, body: str, nav_links: str = "", completed: bool = False) -> str:
+    footer_text = "全书完 · AI 辅助创作" if completed else "剑雨江湖 · 每日更新 · AI 辅助创作"
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -143,7 +157,7 @@ def _render_page(title: str, body: str, nav_links: str = "") -> str:
 <body>
 {nav_links}
 {body}
-<footer><p>剑雨江湖 · 每日更新 · AI 辅助创作</p></footer>
+<footer><p>{footer_text}</p></footer>
 </body>
 </html>"""
 
@@ -151,11 +165,12 @@ def _render_page(title: str, body: str, nav_links: str = "") -> str:
 def build():
     """Build the complete static site."""
     chapters = _get_chapters()
+    completed = _is_completed(chapters)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Build index page
     index_body = _build_index(chapters)
-    index_html = _render_page("剑雨江湖", index_body, '<nav><strong>剑雨江湖</strong></nav>')
+    index_html = _render_page("剑雨江湖", index_body, '<nav><strong>剑雨江湖</strong></nav>', completed=completed)
     (OUTPUT_DIR / "index.html").write_text(index_html, encoding="utf-8")
 
     # Build individual chapter pages
@@ -174,8 +189,12 @@ def build():
         if prev_link or next_link:
             nav_footer = f'<div class="chapter-nav">{prev_link}{next_link}</div>'
 
+        # Final chapter gets special marker
         body = f"<article><h2>{ch['title']}</h2>{ch['body_html']}{nav_footer}</article>"
-        html = _render_page(f"{ch['title']} — 剑雨江湖", body, nav)
+        if completed and i == len(chapters) - 1:
+            body += '<div class="epilogue-note">《剑雨江湖》全书完 · 感谢阅读</div>'
+
+        html = _render_page(f"{ch['title']} — 剑雨江湖", body, nav, completed=completed)
         (OUTPUT_DIR / f"{ch['filename']}.html").write_text(html, encoding="utf-8")
 
     # Copy chapters as raw markdown too (useful for some deployments)
@@ -188,8 +207,11 @@ def _build_index(chapters: list[dict]) -> str:
     for ch in chapters:
         items += f'<li><a href="{ch["filename"]}.html">{ch["title"]}</a><span class="chapter-date">{ch["date"]}</span></li>\n'
 
+    completed = _is_completed(chapters)
+    intro_text = f"<p>已完结 · 共 {len(chapters)} 章</p>" if completed else f"<p>连载小说 · 每日更新 · {len(chapters)} 章</p>"
+
     return f"""<h1>剑雨江湖</h1>
-<div class="intro"><p>连载小说 · 每日更新 · {len(chapters)} 章</p></div>
+<div class="intro">{intro_text}</div>
 <h2>章节目录</h2>
 <ul class="chapter-list">{items}</ul>"""
 

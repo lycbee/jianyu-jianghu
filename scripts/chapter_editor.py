@@ -148,7 +148,8 @@ def generate_title(chapter_text: str, chapter_num: int, dry_run: bool = False) -
     return title
 
 
-def finalize_chapter(chapter_text: str, chapter_num: int, title: str = "") -> Path:
+def finalize_chapter(chapter_text: str, chapter_num: int, title: str = "",
+                      is_final: bool = False) -> Path:
     """Save the final edited chapter to the chapters directory."""
     CHAPTERS_DIR.mkdir(parents=True, exist_ok=True)
     cn = _chinese_num(chapter_num)
@@ -157,10 +158,11 @@ def finalize_chapter(chapter_text: str, chapter_num: int, title: str = "") -> Pa
     if title:
         title_part += f" · {title}"
 
+    final_marker = "\nis_final: true" if is_final else ""
     final_text = f"""---
 title: "{title_part}"
 date: {_today()}
-weight: {chapter_num}
+weight: {chapter_num}{final_marker}
 ---
 
 {chapter_text}
