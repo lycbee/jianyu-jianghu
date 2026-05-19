@@ -1,9 +1,7 @@
 name: Daily Novel Generation
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # 北京时间早上8点（UTC午夜）
-  workflow_dispatch:      # 手动触发
+  workflow_dispatch:      # 仅手动触发（全书已完结，取消定时自动生成）
 
 jobs:
   generate:
